@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Arm control</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+	</head>
+	<body>
+		<script type="module">
+			import * as THREE from '../build/three.module.js';
+			import { FBXLoader } from './examples/jsm/loaders/FBXLoader.js';
+			import { OrbitControls } from './examples/jsm/controls/OrbitControls.js';
+			import { TransformControls } from './examples/jsm/controls/TransformControls.js';
+
+			let cameraPersp, cameraOrtho, currentCamera;
+			let scene, renderer, control, orbit;
+
+			init();
+			render();
+
+			function init() {
+
+				renderer = new THREE.WebGLRenderer();
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer.domElement );
+
+				const aspect = window.innerWidth / window.innerHeight;
+
+				cameraPersp = new THREE.PerspectiveCamera( 50, aspect, 0.01, 30000 );
+				cameraOrtho = new THREE.OrthographicCamera( - 600 * aspect, 600 * aspect, 600, - 600, 0.01, 30000 );
+				currentCamera = cameraPersp;
+
+				currentCamera.position.set( 1000, 500, 1000 );
+				currentCamera.lookAt( 0, 200, 0 );
+
+				scene = new THREE.Scene();
+				scene.add( new THREE.GridHelper( 5000, 10 ) );
+
+				let light = new THREE.HemisphereLight( 0xffffff, 0x444444 );
+				light.position.set( 0, 200, 0 );
+				scene.add( light );
+
+				light = new THREE.DirectionalLight( 0xffffff );
+				light.position.set( 0, 200, 100 );
+				light.castShadow = true;
+				light.shadow.camera.top = 180;
+				light.shadow.camera.bottom = - 100;
+				light.shadow.camera.left = - 120;
+				light.shadow.camera.right = 120;
+				scene.add( light );
+
+				orbit = new OrbitControls( currentCamera, renderer.domElement );
+				orbit.update();
+				orbit.addEventListener( 'change', render );
+
+				control = new TransformControls( currentCamera, renderer.domElement );
+				control.setMode('rotate');
+
+				control.addEventListener( 'change', render );
+				control.addEventListener( 'dragging-changed', function ( event ) {
+					orbit.enabled = ! event.value;
+				} );
+
+				// model
+				let loader = new FBXLoader();
+				loader.load( 'cube_rig.fbx', function ( cube ) {
+					cube.scale.set(50,50,50)
+					cube.rotation.z =  Math.PI;
+					cube.traverse( function ( child ) {
+						if(child.isMesh) {
+							child.material.color.set(0x8B0000)
+						}
+					} );
+					scene.add( cube );
+
+					}, undefined, function ( error ) {
+					console.error( error );
+				} );
+
+				loader.load( 'arm_rig.fbx', function ( arm ) {
+					arm.scale.set(50,50,50)
+					arm.rotation.z =  Math.PI / 2;
+
+					arm.traverse( function ( child ) {
+						if (child.name == 'elbow_jnt' ) {
+							control.attach( child );
+						}
+						if(child.isMesh) {
+							child.material.color.set(0x0000ff)
+						}
+					} );
+					
+					scene.add( arm );
+				}, undefined, function ( error ) {
+					console.error( error );
+				} );
+				scene.add( control );
+
+				window.addEventListener( 'resize', onWindowResize, false );
+			}
+
+			function onWindowResize() {
+				const aspect = window.innerWidth / window.innerHeight;
+
+				cameraPersp.aspect = aspect;
+				cameraPersp.updateProjectionMatrix();
+
+				cameraOrtho.left = cameraOrtho.bottom * aspect;
+				cameraOrtho.right = cameraOrtho.top * aspect;
+				cameraOrtho.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				render();
+			}
+
+			function render() {
+				renderer.render( scene, currentCamera );
+			}
+		</script>
+	</body>
+</html>
